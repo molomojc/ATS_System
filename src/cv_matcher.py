@@ -46,15 +46,19 @@ def clean_text(text):
 
 def get_job_description(job_id, company_csv):
     try:
-        df = pd.read_csv(company_csv) #read the company CSV file
-        job_description = df.loc[df['JOBID'] == job_id, 'JOB_DESCRIPTION'].values #get the job description
+        df = pd.read_csv(company_csv) #get the csv
+        job_description = df.loc[df['JOBID'] == job_id, 'JOBDESC'].values #fetch the job description
         if job_description.size > 0:
-            return job_description[0] #return the job description if found
+            desc = job_description[0]
+            if isinstance(desc, float) and pd.isna(desc):
+                return None
+            return str(desc)
         else:
-            return None #return None if job ID not found
+            return None
     except Exception as e:
         print(f"Error reading company CSV: {e}")
-        return None  
+        return None
+
 
 def CVMatcher(cv_path,job_id, company_csv):
     

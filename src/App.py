@@ -7,10 +7,13 @@ import pandas as pd # this is used for data manipulation
 from flask import Flask, render_template, request, jsonify # this is used to create the Flask app and handle requests
 from datetime import datetime # this is used to handle date and time
 from werkzeug.utils import secure_filename # this is used to securely handle file uploads
+from flask_cors import CORS
 
 from cv_matcher import CVMatcher # this is our custom module for CV matching
 
-app = Flask(__name__) # create a Flask app instance
+
+app = Flask(__name__)
+CORS(app)
 
 #fetch basic constants 
 UPLOAD_FOLDER = './data/cv_uploads'
@@ -61,12 +64,14 @@ def add_jobs():
         df = pd.concat([df, new_df], ignore_index=True) #append the new
         df.to_csv(Company_csv, index=False) #save the updated DataFrame to CSV
     
+        return jsonify({'message': 'Job added successfully'}), 200
+
     except Exception as e:
          return jsonify({'error': str(e)}), 500
 
 
 #return the updated job data
-@app.route('/company.csv', methods=['GET'])
+@app.route('/Home', methods=['GET'])
 def get_company_data():
     try:
         df = pd.read_csv(Company_csv)
@@ -85,20 +90,20 @@ def applu_for_job():
         return jsonify({'error': 'No CV file or job ID provided'}), 400
     
     #get the CV file and job ID
-    file = request.files['cv']
+    file = request.files['cv_file']
     user_id = request.form['user_id']
     job_id = request.form['job_id']
-    
+    print("The job_id is:",job_id)
     try: 
         job_id = int(job_id) #convert job_id to integer
         
         #Save the cv to the upload folder
-        filename = secure_filename(f"user_{user_id}_job_{job_id}_date_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        filename = secure_filename(f"user_{user_id}_job_{job_id}_date_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         cv_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(cv_path) #save the CV file to the upload folder
         
         #calculate the score
-        similarity_score = CVMatcher(cv_path, job_id).calculate_similarity() #use the CVMatcher to calculate the similarity score
+        similarity_score = CVMatcher(cv_path, job_id, Company_csv)#use the CVMatcher to calculate the similarity score
         
         df = pd.read_csv(applicant_csv) #read the existing applicant data from CSV
         
@@ -106,7 +111,6 @@ def applu_for_job():
         application_data = {
             'APPLICATION_ID' : (df['APPLICATION_ID'].max() + 1) if not df.empty else 1, #generate a new APPLICATION_ID
             'JOB_ID': job_id,
-            'USER_ID': user_id,
             'CV_PATH': cv_path,
             'SIMILARITY_SCORE': similarity_score,
             'APPLIED_AT': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -124,5 +128,5 @@ def applu_for_job():
 #done now call the main function to run the app
 if __name__ == '__main__':
     initialize_system()
-    # Use 0.0.0.0 to make it accessible on your network
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    
+    app.run(host='0.0.0.0', port=5000, debug=True) #run the app 
