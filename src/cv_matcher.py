@@ -9,6 +9,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer #used for text vecto
 from sklearn.metrics.pairwise import cosine_similarity #used to calculate similarity between vectors
 import re #used for regular expressions
 
+
 def extract_text_from_cv(filepath):
     
     #put the text inside a context

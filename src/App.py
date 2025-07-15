@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, jsonify # this is used to cre
 from datetime import datetime # this is used to handle date and time
 from werkzeug.utils import secure_filename # this is used to securely handle file uploads
 from flask_cors import CORS
+import yagmail
 
 from cv_matcher import CVMatcher # this is our custom module for CV matching
 
@@ -69,6 +70,20 @@ def add_jobs():
     except Exception as e:
          return jsonify({'error': str(e)}), 500
 
+#The function to handle logins
+@app.route('/login', methods=['POST'])
+def login():
+    
+    data = request.json
+    
+    #For the sake of simplicity lets just use for demo we use stored simple userdata   
+    username = data.get('username')
+    password = data.get('password')
+    
+    if username == "user@TeamA.com" and password == "thebest123":
+        return jsonify({"status": "success"}), 200
+    else:
+        return jsonify({"status": "unauthorized"}), 401
 
 #return the updated job data
 @app.route('/Home', methods=['GET'])
@@ -82,49 +97,90 @@ def get_company_data():
         return jsonify({'error': str(e)}), 500
     
 #route to handle job applications
+import yagmail  # Ensure this is imported at the top
+
 @app.route('/application', methods=['POST'])
 def applu_for_job():
     
-    #first receive the cv file and job id from the request
     if 'cv_file' not in request.files or 'job_id' not in request.form:
         return jsonify({'error': 'No CV file or job ID provided'}), 400
-    
-    #get the CV file and job ID
+
     file = request.files['cv_file']
     user_id = request.form['user_id']
     job_id = request.form['job_id']
-    print("The job_id is:",job_id)
-    try: 
-        job_id = int(job_id) #convert job_id to integer
-        
-        #Save the cv to the upload folder
-        filename = secure_filename(f"user_{user_id}_job_{job_id}_date_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+    email = request.form.get('email')  
+
+    print("The job_id is:", job_id)
+
+    try:
+        job_id = int(job_id)
+
+        # Save the CV
+        filename = secure_filename(f"user_{user_id}_job_{job_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         cv_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(cv_path) #save the CV file to the upload folder
-        
-        #calculate the score
-        similarity_score = CVMatcher(cv_path, job_id, Company_csv)#use the CVMatcher to calculate the similarity score
-        
-        df = pd.read_csv(applicant_csv) #read the existing applicant data from CSV
-        
-        #create a csv entry for the application
+        file.save(cv_path)
+
+        # Match score
+        similarity_score = CVMatcher(cv_path, job_id, Company_csv)
+
+        # Save to CSV
+        df = pd.read_csv(applicant_csv)
         application_data = {
-            'APPLICATION_ID' : (df['APPLICATION_ID'].max() + 1) if not df.empty else 1, #generate a new APPLICATION_ID
+            'APPLICATION_ID': (df['APPLICATION_ID'].max() + 1) if not df.empty else 1,
             'JOB_ID': job_id,
             'CV_PATH': cv_path,
             'SIMILARITY_SCORE': similarity_score,
             'APPLIED_AT': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
-        
-        #write the application data to the CSV file
-        new_df = pd.DataFrame([application_data]) #create a DataFrame for the new application
-        df = pd.concat([df, new_df], ignore_index=True) #append the new
-        df.to_csv(applicant_csv, index=False) #save the updated DataFrame to CSV
-        
-        return jsonify({'message': 'Application submitted successfully'}), 200
+        new_df = pd.DataFrame([application_data])
+        df = pd.concat([df, new_df], ignore_index=True)
+        df.to_csv(applicant_csv, index=False)
+
+        # ✉️ Send conditional email
+        try:
+            yag = yagmail.SMTP("therealcineema@gmail.com", "ogbozhfyhlzucrxm")
+
+            if similarity_score < 0.5:
+                yag.send(
+                    to=email,
+                    subject="Application Update – IntelliBuild",
+                    contents=f"""
+                    Dear {user_id},
+
+                    Thank you for applying to Job #{job_id}. After reviewing your application, 
+                    we regret to inform you that your profile did not meet the initial matching criteria.
+
+                    We encourage you to apply for future roles with us.
+
+                    Regards,
+                    IntelliBuild Team
+                    """
+                )
+            else:
+                yag.send(
+                    to=email,
+                    subject="You're Shortlisted – IntelliBuild",
+                    contents=f"""
+                    Dear {user_id},
+
+                    Thank you for your application to Job #{job_id}.
+                    We're happy to inform you that your application has passed the initial screening phase 
+                    with a match score of {similarity_score:.2f}.
+
+                    Our team will be in touch with the next steps.
+
+                    Regards,
+                    IntelliBuild Team
+                    """
+                )
+        except Exception as e:
+            print("Email sending failed:", e)
+
+        return jsonify({'message': 'Application submitted successfully.'}), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
+
 #done now call the main function to run the app
 if __name__ == '__main__':
     initialize_system()
