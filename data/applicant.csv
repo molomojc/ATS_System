@@ -1,3 +1,4 @@
 APPLICATION_ID,JOB_ID,USER_ID,UPLOADED_CV_PATH,TIME_UPLOADED,SIMILARITY_SCORE,CV_PATH,APPLIED_AT
 1,1,,,,1.0,./data/cv_uploads\user_Jacob_job_1_date_20250714_195242.pdf,2025-07-14 19:52:42
 2,1,,,,0.0,./data/cv_uploads\user_jason_job_1_date_20250714_195406.pdf,2025-07-14 19:54:06
+3,1,,,,1.0,./data/cv_uploads\user_Jason_job_1_20250715_055104.pdf,2025-07-15 05:51:04

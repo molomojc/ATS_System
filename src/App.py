@@ -180,6 +180,33 @@ def applu_for_job():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+@app.route('/recruiter-insights', methods=['GET'])
+def recruiter_insights():
+    try:
+        applicants_df = pd.read_csv(applicant_csv)
+        companies_df = pd.read_csv(Company_csv)
+
+        # Aggregate insights
+        total_applications = len(applicants_df)
+        applications_per_job = applicants_df.groupby('JOB_ID').size().to_dict()
+        avg_score_per_job = applicants_df.groupby('JOB_ID')['SIMILARITY_SCORE'].mean().round(2).to_dict()
+
+        # Shortlist stats
+        shortlist_counts = applicants_df['SIMILARITY_SCORE'] >= 0.5
+        shortlisted = shortlist_counts.sum()
+        rejected = (~shortlist_counts).sum()
+
+        return jsonify({
+            'total_applications': total_applications,
+            'applications_per_job': applications_per_job,
+            'avg_score_per_job': avg_score_per_job,
+            'shortlisted': int(shortlisted),
+            'rejected': int(rejected),
+            'job_names': companies_df.set_index('JOBID')['JOBNAME'].to_dict()
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 #done now call the main function to run the app
 if __name__ == '__main__':
